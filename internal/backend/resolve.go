@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	gobackend "github.com/zarz/spotiflac_android/go_backend"
 
@@ -32,18 +33,40 @@ func Search(query string, limit int) ([]Track, error) {
 }
 
 func ResolveURL(url string) (*ResolvedURL, error) {
-	raw, err := gobackend.HandleURLWithExtensionJSON(url)
-	if err != nil {
-		return nil, err
-	}
 	var resolved ResolvedURL
-	if err := unmarshal(raw, &resolved); err != nil {
-		return nil, fmt.Errorf("parse resolve result: %w", err)
-	}
-	if resolved.Track != nil {
-		resolved.Tracks = []Track{*resolved.Track}
+	for attempt := 0; attempt < 10; attempt++ {
+		raw, err := gobackend.HandleURLWithExtensionJSON(url)
+		if err != nil {
+			return nil, err
+		}
+		resolved = ResolvedURL{}
+		if err := unmarshal(raw, &resolved); err != nil {
+			return nil, fmt.Errorf("parse resolve result: %w", err)
+		}
+		if resolved.Track != nil {
+			resolved.Tracks = []Track{*resolved.Track}
+		}
+		if resolved.complete() {
+			return &resolved, nil
+		}
+		time.Sleep(300 * time.Millisecond)
 	}
 	return &resolved, nil
+}
+
+// complete reports whether every resolved track has real metadata. Some
+// extensions (e.g. ytmusic) return a placeholder track on first resolve and
+// fill the cache asynchronously, so we poll until it's ready.
+func (r *ResolvedURL) complete() bool {
+	if len(r.Tracks) == 0 {
+		return false
+	}
+	for _, t := range r.Tracks {
+		if strings.TrimSpace(t.Name) == "" || strings.TrimSpace(t.Artists) == "" {
+			return false
+		}
+	}
+	return true
 }
 
 func expandDir(dir string) string {
@@ -59,7 +82,6 @@ func expandDir(dir string) string {
 func DownloadRequestForTrack(t Track, cfg app.Config) gobackend.DownloadRequest {
 	return gobackend.DownloadRequest{
 		ISRC:               t.ISRC,
-		Source:             t.ProviderID,
 		SpotifyID:          t.SpotifyID,
 		TrackName:          t.Name,
 		ArtistName:         t.Artists,
