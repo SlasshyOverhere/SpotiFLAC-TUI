@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
+	"syscall"
 
 	tea "github.com/charmbracelet/bubbletea"
 	gobackend "github.com/zarz/spotiflac_android/go_backend"
@@ -43,6 +45,11 @@ func main() {
 	qm := queue.New()
 	go update.Check(cfg)
 
+	logFile := redirectStderr(cfg)
+	if logFile != nil {
+		defer logFile.Close()
+	}
+
 	if _, err := tea.NewProgram(ui.New(cfg, qm),
 		tea.WithAltScreen(),
 		tea.WithMouseCellMotion(),
@@ -50,6 +57,25 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+}
+
+func redirectStderr(cfg app.Config) *os.File {
+	logDir := cfg.BackendDataDir()
+	if err := os.MkdirAll(logDir, 0o755); err != nil {
+		return nil
+	}
+	f, err := os.OpenFile(filepath.Join(logDir, "spotiflac.log"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	if err != nil {
+		return nil
+	}
+	// Redirect both the Go-level variable and the underlying fd 2 so that
+	// any C/goja code writing directly to stderr also lands in the log file.
+	os.Stderr = f
+	if err := syscall.Dup2(int(f.Fd()), syscall.Stderr); err != nil {
+		f.Close()
+		return nil
+	}
+	return f
 }
 
 // runHeadless implements scriptable mode:
