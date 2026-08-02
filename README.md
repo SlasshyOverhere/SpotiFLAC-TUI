@@ -1,11 +1,36 @@
 # SpotiFLAC-CLI
 
-An interactive terminal (TUI) client for downloading **lossless (FLAC) music**.
-It uses the **same engine and extension ecosystem as SpotiFLAC Mobile** — a
-keyboard-driven replica of the mobile app, not a rewrite. The heavy lifting
-(extension runtime, FLAC encoding, tag embedding, cover art, lyrics, provider
-fallback, signed sessions) is inherited from the shared `go_backend` module via
-a git submodule, so your favorite mobile extensions work here too.
+> **⚠️ Legal disclaimer — please read before using.**
+>
+> This project is a **terminal user interface (TUI)** built *for* the users of
+> the open-source **SpotiFLAC** ecosystem. It is **not** a service that hosts,
+> distributes, streams, or stores any copyrighted content, and it does **not**
+> provide access to any premium or DRM-protected catalog. The download,
+> encoding, metadata, and extension capabilities come **entirely from the
+> upstream open-source project**:
+>
+> - **SpotiFLAC Mobile** — https://github.com/spotiflacapp/SpotiFLAC-Mobile
+>
+> which this project only wraps in a keyboard-driven terminal client. **The
+> actual author and copyright holder of the underlying engine is
+> [`spotiflacapp`](https://github.com/spotiflacapp)** (MIT licensed, see
+> [LICENSE](LICENSE)). This TUI does not ship, bundle, or redistribute any
+> music or content of its own.
+>
+> **You are solely responsible for** the content you download and for ensuring
+> you have the rights to use it (e.g. your own purchases, public-domain
+> material, or content you are otherwise licensed to access). **This project is
+> provided for interoperability with the open-source ecosystem only** and makes
+> no representation that any particular use is lawful in your jurisdiction.
+> Do not use it to infringe copyright. If you are a rights holder and believe
+> this project misuses your work, open an issue and we will address it.
+
+An interactive terminal (TUI) client for **lossless (FLAC) music** built on the
+**same engine and extension ecosystem as SpotiFLAC Mobile** — a keyboard-driven
+replica of the mobile app, not a rewrite. The heavy lifting (extension runtime,
+FLAC encoding, tag embedding, cover art, lyrics, provider fallback, signed
+sessions) is inherited from the shared `go_backend` module via a git submodule,
+so your favorite mobile extensions work here too.
 
 ![Tabs](https://img.shields.io/badge/tabs-Home%20%7C%20Store%20%7C%20Extensions%20%7C%20Downloads%20%7C%20Settings-81g)
 
@@ -108,6 +133,14 @@ See [PLAN.md](PLAN.md) for the design and roadmap.
 
 ---
 
-## License
+## Attribution & Licensing
 
-Same as upstream SpotiFLAC Mobile.
+- **Engine / backend:** Copyright (c) 2026 [zarzet](https://github.com/spotiflacapp),
+  released under the **MIT License** by the upstream project
+  [SpotiFLAC Mobile](https://github.com/spotiflacapp/SpotiFLAC-Mobile).
+- **This TUI wrapper:** MIT licensed — see [LICENSE](LICENSE) for the full text,
+  and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for the list of bundled
+  dependencies and their licenses.
+- **Notice:** This project is not affiliated with or endorsed by the upstream
+  author or any music service. It is an independent, community-maintained
+  terminal client that consumes the upstream open-source engine.
