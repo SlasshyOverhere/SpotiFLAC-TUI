@@ -5,9 +5,9 @@ import (
 	"strings"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
 	"spotiflac-cli/internal/app"
@@ -354,18 +354,11 @@ func (m *Model) handleAsync(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m *Model) View() string {
 	if m.w == 0 || m.h == 0 {
-		return "loading…"
+		return "starting SpotiFLAC…"
 	}
 	m.listY = -1
-	content := m.renderHeader() + "\n\n" + m.content() + "\n\n" + m.renderFooter()
-	maxW := clamp(m.w-6, 40, 110)
-	boxed := boxStyle.Width(maxW).Render(content)
-	boxH := lipgloss.Height(boxed)
-	boxW := lipgloss.Width(boxed)
-	m.boxTop = max((m.h-boxH)/2, 0)
-	m.boxLeft = max((m.w-boxW)/2, 0)
-	m.tabXs = m.computeTabXs()
-	return lipgloss.Place(m.w, m.h, lipgloss.Center, lipgloss.Center, boxed)
+	m.tabXs = nil
+	return m.renderDashboard()
 }
 
 func (m *Model) content() string {
@@ -436,8 +429,8 @@ func (m *Model) renderFooter() string {
 // ---- Mouse ----
 
 func (m *Model) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
-	contentX := msg.X - m.boxLeft - 3 // border(1) + left padding(2)
-	contentY := msg.Y - m.boxTop - 1  // border(1)
+	sidebarWidth := dashboardSidebarWidth(m.w)
+	contentY := msg.Y - 4 // dashboard header (3) + panel border (1)
 
 	switch msg.Button {
 	case tea.MouseButtonWheelUp:
@@ -486,28 +479,25 @@ func (m *Model) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// header row: switch tab by x
-	if contentY == 0 {
-		for i, r := range m.tabXs {
-			if contentX >= r[0] && contentX < r[1] {
-				m.tab = i
-				return m, nil
-			}
+	// Navigation is a fixed left rail, with one row per tab.
+	if msg.X < sidebarWidth {
+		if msg.Y >= 5 && msg.Y < 5+len(tabNames) {
+			m.tab = msg.Y - 5
 		}
 		return m, nil
 	}
 
-	// input row is the first line of tab content (contentY 2: header at 0, blank at 1)
-	if contentY == 2 {
+	// The first panel content row is the input on Home, Store, and Settings.
+	if contentY == 0 {
 		if m.tab == 0 || m.tab == 1 || m.tab == 4 {
 			m.focusInput()
 			return m, nil
 		}
 	}
 
-	// list rows (content starts at contentY 2: header + blank)
+	// List rows are recorded relative to the panel content, not the terminal.
 	if m.listY >= 0 {
-		idx := contentY - 2 - m.listY
+		idx := contentY - m.listY
 		if idx >= 0 {
 			n := m.listLen()
 			if m.listWinStart+idx < n {

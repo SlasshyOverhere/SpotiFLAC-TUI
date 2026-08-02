@@ -11,55 +11,57 @@ import (
 )
 
 type Track struct {
-	ID         string `json:"id"`
-	Name       string `json:"name"`
-	Artists    string `json:"artists"`
-	AlbumName  string `json:"album_name"`
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Artists     string `json:"artists"`
+	AlbumName   string `json:"album_name"`
 	AlbumArtist string `json:"album_artist"`
-	AlbumID    string `json:"album_id"`
-	DurationMS int    `json:"duration_ms"`
-	CoverURL   string `json:"cover_url"`
+	AlbumID     string `json:"album_id"`
+	DurationMS  int    `json:"duration_ms"`
+	CoverURL    string `json:"cover_url"`
 	ReleaseDate string `json:"release_date"`
-	TrackNumber int   `json:"track_number"`
-	TotalTracks int   `json:"total_tracks"`
-	DiscNumber  int   `json:"disc_number"`
-	TotalDiscs  int   `json:"total_discs"`
-	ISRC       string `json:"isrc"`
-	ProviderID string `json:"provider_id"`
-	SpotifyID  string `json:"spotify_id"`
-	Composer   string `json:"composer"`
-	Explicit   bool   `json:"explicit"`
+	TrackNumber int    `json:"track_number"`
+	TotalTracks int    `json:"total_tracks"`
+	DiscNumber  int    `json:"disc_number"`
+	TotalDiscs  int    `json:"total_discs"`
+	ISRC        string `json:"isrc"`
+	ProviderID  string `json:"provider_id"`
+	SpotifyID   string `json:"spotify_id"`
+	Composer    string `json:"composer"`
+	Explicit    bool   `json:"explicit"`
 }
 
 type RepoExt struct {
-	ID              string `json:"id"`
-	Name            string `json:"name"`
-	DisplayName     string `json:"display_name"`
-	Version         string `json:"version"`
-	Description     string `json:"description"`
-	Category        string `json:"category"`
-	Downloads       int    `json:"downloads"`
-	IsInstalled     bool   `json:"is_installed"`
+	ID               string `json:"id"`
+	Name             string `json:"name"`
+	DisplayName      string `json:"display_name"`
+	Version          string `json:"version"`
+	Description      string `json:"description"`
+	Category         string `json:"category"`
+	Downloads        int    `json:"downloads"`
+	IsInstalled      bool   `json:"is_installed"`
 	InstalledVersion string `json:"installed_version"`
-	HasUpdate       bool   `json:"has_update"`
+	HasUpdate        bool   `json:"has_update"`
 }
 
 type InstalledExt struct {
-	ID            string   `json:"id"`
-	Name          string   `json:"name"`
-	DisplayName   string   `json:"display_name"`
-	Version       string   `json:"version"`
-	Description   string   `json:"description"`
-	Types         []string `json:"types"`
-	Enabled       bool     `json:"enabled"`
-	Status        string   `json:"status"`
-	HasMetadataProvider bool `json:"has_metadata_provider"`
-	HasDownloadProvider bool `json:"has_download_provider"`
-	HasLyricsProvider   bool `json:"has_lyrics_provider"`
-	Error         string   `json:"error_message"`
+	ID                  string   `json:"id"`
+	Name                string   `json:"name"`
+	DisplayName         string   `json:"display_name"`
+	Version             string   `json:"version"`
+	Description         string   `json:"description"`
+	Types               []string `json:"types"`
+	Enabled             bool     `json:"enabled"`
+	Status              string   `json:"status"`
+	HasMetadataProvider bool     `json:"has_metadata_provider"`
+	HasDownloadProvider bool     `json:"has_download_provider"`
+	HasLyricsProvider   bool     `json:"has_lyrics_provider"`
+	Error               string   `json:"error_message"`
 }
 
 func Init(cfg app.Config) error {
+	// Backend diagnostics stay in its ring buffer. The backend no longer prints
+	// them directly, so they cannot race Bubble Tea's renderer.
 	gobackend.SetLoggingEnabled(true)
 	if err := gobackend.InitExtensionSystem(cfg.ExtensionsDir(), cfg.BackendDataDir()); err != nil {
 		return err
