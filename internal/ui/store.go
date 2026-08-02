@@ -23,25 +23,36 @@ func loadStore() tea.Cmd {
 
 func (m *Model) renderStore() string {
 	var b strings.Builder
-	regs, _ := backend.ListRegistries()
-	active := ""
-	if len(regs) > 0 {
-		active = regs[len(regs)-1]
-	}
-	if m.store.typing {
-		b.WriteString(dimStyle.Render("Repository URL: "))
-		b.WriteString(selStyle.Render(m.store.input + "▏"))
+	if m.store.inputFocused {
+		b.WriteString(selStyle.Render("▸ ") + m.store.input.View())
 	} else {
-		b.WriteString(dimStyle.Render("repo: "))
-		b.WriteString(active)
-		b.WriteString("\n")
+		b.WriteString(dimStyle.Render("  " + m.store.input.View()))
 	}
 	b.WriteString("\n")
+
+	regs, _ := backend.ListRegistries()
+	m.listY = 3
+	if len(regs) > 0 {
+		b.WriteString(dimStyle.Render("  repo: " + regs[len(regs)-1]))
+		b.WriteString("\n\n")
+		m.listY = 4
+	} else {
+		b.WriteString("\n")
+	}
+
 	if m.store.loading {
-		b.WriteString(dimStyle.Render("loading..."))
+		b.WriteString(m.store.spin.View() + " loading…")
 		return b.String()
 	}
-	for i, e := range m.store.exts {
+	if len(m.store.exts) == 0 {
+		b.WriteString(dimStyle.Render("no extensions — press r to add a registry URL"))
+		return b.String()
+	}
+	visible := clamp(m.h-14, 5, 30)
+	start, end := m.listWindow(len(m.store.exts), m.store.cursor, visible)
+	m.listWinStart = start
+	for i := start; i < end; i++ {
+		e := m.store.exts[i]
 		line := fmt.Sprintf("%s  v%s", e.DisplayName, e.Version)
 		if e.Name != "" && e.Name != e.DisplayName {
 			line += fmt.Sprintf("  [%s]", e.Name)
@@ -65,31 +76,7 @@ func (m *Model) renderStore() string {
 	return b.String()
 }
 
-func (m *Model) storeKey(msg tea.KeyMsg) tea.Cmd {
-	if m.store.typing {
-		if msg.Type == tea.KeyEsc {
-			m.store.typing = false
-			return nil
-		}
-		if msg.Type == tea.KeyEnter {
-			url := strings.TrimSpace(m.store.input)
-			m.store.typing = false
-			m.store.input = ""
-			if url != "" {
-				if err := backend.AddRegistry(url); err != nil {
-					m.msg = err.Error()
-					return nil
-				}
-				m.store.loading = true
-				return loadStore()
-			}
-			return nil
-		}
-		if typeInto(&m.store.input, msg) {
-			return nil
-		}
-		return nil
-	}
+func (m *Model) storeAction(msg tea.KeyMsg) tea.Cmd {
 	switch msg.Type {
 	case tea.KeyUp:
 		if m.store.cursor > 0 {
@@ -102,10 +89,11 @@ func (m *Model) storeKey(msg tea.KeyMsg) tea.Cmd {
 	case tea.KeyRunes:
 		switch msg.String() {
 		case "r":
-			m.store.typing = true
+			m.store.input.Focus()
+			m.store.inputFocused = true
 		case "R":
 			m.store.loading = true
-			return loadStore()
+			return tea.Batch(func() tea.Msg { return m.store.spin.Tick() }, loadStore())
 		case "i":
 			if len(m.store.exts) > 0 {
 				id := m.store.exts[m.store.cursor].ID
@@ -115,7 +103,7 @@ func (m *Model) storeKey(msg tea.KeyMsg) tea.Cmd {
 					m.msg = "installed " + id
 				}
 				m.store.loading = true
-				return loadStore()
+				return tea.Batch(func() tea.Msg { return m.store.spin.Tick() }, loadStore())
 			}
 		case "s":
 			regs, err := backend.ListRegistries()
@@ -131,7 +119,7 @@ func (m *Model) storeKey(msg tea.KeyMsg) tea.Cmd {
 					}
 				}
 				m.store.loading = true
-				return loadStore()
+				return tea.Batch(func() tea.Msg { return m.store.spin.Tick() }, loadStore())
 			}
 		case "k":
 			if m.store.cursor > 0 {

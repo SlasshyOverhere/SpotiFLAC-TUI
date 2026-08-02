@@ -43,7 +43,10 @@ func main() {
 	qm := queue.New()
 	go update.Check(cfg)
 
-	if _, err := tea.NewProgram(ui.New(cfg, qm), tea.WithAltScreen()).Run(); err != nil {
+	if _, err := tea.NewProgram(ui.New(cfg, qm),
+		tea.WithAltScreen(),
+		tea.WithMouseCellMotion(),
+	).Run(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}

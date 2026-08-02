@@ -20,15 +20,32 @@ type enqueuedMsg struct{ n int }
 
 func (m *Model) renderHome() string {
 	var b strings.Builder
-	if m.home.typing {
-		b.WriteString(dimStyle.Render("URL or search query: "))
-		b.WriteString(selStyle.Render(m.home.input + "▏"))
+	if m.home.inputFocused {
+		b.WriteString(selStyle.Render("▸ ") + m.home.input.View())
 	} else {
-		b.WriteString(dimStyle.Render("type 'e' to enter a URL or query · " +
-			fmt.Sprintf("%d results", len(m.home.results))))
+		b.WriteString(dimStyle.Render("  " + m.home.input.View()))
 	}
 	b.WriteString("\n\n")
-	for i, t := range m.home.results {
+
+	m.listY = 3
+	if m.home.loading {
+		b.WriteString(m.home.spin.View() + " working…")
+		return b.String()
+	}
+	if m.home.kind != "" {
+		b.WriteString(dimStyle.Render(m.home.kind))
+		b.WriteString("\n")
+		m.listY = 4
+	}
+	if len(m.home.results) == 0 {
+		b.WriteString(dimStyle.Render("no results yet — type a URL or query and press enter"))
+		return b.String()
+	}
+	visible := clamp(m.h-12, 5, 30)
+	start, end := m.listWindow(len(m.home.results), m.home.cursor, visible)
+	m.listWinStart = start
+	for i := start; i < end; i++ {
+		t := m.home.results[i]
 		line := fmt.Sprintf("%s — %s", t.Name, t.Artists)
 		if t.AlbumName != "" {
 			line += fmt.Sprintf("  (%s)", t.AlbumName)
@@ -43,23 +60,7 @@ func (m *Model) renderHome() string {
 	return b.String()
 }
 
-func (m *Model) homeKey(msg tea.KeyMsg) tea.Cmd {
-	if m.home.typing {
-		if msg.Type == tea.KeyEsc {
-			m.home.typing = false
-			return nil
-		}
-		if msg.Type == tea.KeyEnter {
-			query := m.home.input
-			m.home.typing = false
-			m.home.input = ""
-			return resolveCmd(query)
-		}
-		if typeInto(&m.home.input, msg) {
-			return nil
-		}
-		return nil
-	}
+func (m *Model) homeAction(msg tea.KeyMsg) tea.Cmd {
 	switch msg.Type {
 	case tea.KeyUp:
 		if m.home.cursor > 0 {
@@ -72,7 +73,8 @@ func (m *Model) homeKey(msg tea.KeyMsg) tea.Cmd {
 	case tea.KeyRunes:
 		switch msg.String() {
 		case "e":
-			m.home.typing = true
+			m.home.input.Focus()
+			m.home.inputFocused = true
 		case "d":
 			if len(m.home.results) > 0 {
 				t := m.home.results[m.home.cursor]
@@ -112,7 +114,7 @@ func resolveCmd(query string) tea.Cmd {
 			if err != nil {
 				return resultsMsg{err: err, kind: "URL"}
 			}
-			return resultsMsg{tracks: r.Tracks, kind: "URL: " + r.Name}
+			return resultsMsg{tracks: r.Tracks, kind: "URL"}
 		}
 		tracks, err := backend.Search(query, 20)
 		return resultsMsg{tracks: tracks, err: err, kind: "search"}

@@ -13,44 +13,31 @@ var qualities = []string{"lossless", "high", "normal"}
 
 func (m *Model) renderSettings() string {
 	var b strings.Builder
-	if m.settings.typing {
-		b.WriteString(dimStyle.Render("Output directory: "))
-		b.WriteString(selStyle.Render(m.settings.input + "▏"))
+	if m.settings.inputFocused {
+		b.WriteString(selStyle.Render("▸ ") + m.settings.input.View())
 	} else {
-		b.WriteString(dimStyle.Render("output: " + m.cfg.OutputDir))
+		b.WriteString(dimStyle.Render("  " + m.settings.input.View()))
 	}
+	b.WriteString("\n\n")
+	b.WriteString(dimStyle.Render("output dir: "))
+	b.WriteString(m.cfg.OutputDir)
 	b.WriteString("\n\n")
 	b.WriteString(dimStyle.Render("quality: "))
 	b.WriteString(selStyle.Render(m.cfg.Quality))
-	b.WriteString(dimStyle.Render("  (" + strings.Join(qualities, " / ") + " — toggle with q)\n"))
-	b.WriteString(fmt.Sprintf("metadata: %v\n", m.cfg.EmbedMetadata))
-	b.WriteString(fmt.Sprintf("lyrics:   %v\n", m.cfg.EmbedLyrics))
-	b.WriteString(fmt.Sprintf("update check: %v\n", m.cfg.UpdateCheck))
+	b.WriteString(dimStyle.Render("  (" + strings.Join(qualities, " / ") + " — q to cycle)\n"))
+	b.WriteString(fmt.Sprintf("metadata:      %v\n", m.cfg.EmbedMetadata))
+	b.WriteString(fmt.Sprintf("lyrics:        %v\n", m.cfg.EmbedLyrics))
+	b.WriteString(fmt.Sprintf("update check:  %v\n", m.cfg.UpdateCheck))
 	return b.String()
 }
 
-func (m *Model) settingsKey(msg tea.KeyMsg) tea.Cmd {
-	if m.settings.typing {
-		if msg.Type == tea.KeyEsc {
-			m.settings.input = m.cfg.OutputDir
-			m.settings.typing = false
-			return nil
-		}
-		if msg.Type == tea.KeyEnter {
-			m.cfg.OutputDir = m.settings.input
-			m.settings.typing = false
-			return m.saveCmd()
-		}
-		if typeInto(&m.settings.input, msg) {
-			return nil
-		}
-		return nil
-	}
+func (m *Model) settingsAction(msg tea.KeyMsg) tea.Cmd {
 	switch msg.Type {
 	case tea.KeyRunes:
 		switch msg.String() {
 		case "e":
-			m.settings.typing = true
+			m.settings.input.Focus()
+			m.settings.inputFocused = true
 		case "q":
 			idx := indexOf(qualities, m.cfg.Quality)
 			m.cfg.Quality = qualities[(idx+1)%len(qualities)]

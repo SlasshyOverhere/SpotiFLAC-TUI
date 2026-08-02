@@ -6,17 +6,21 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"spotiflac-cli/internal/backend"
 	"spotiflac-cli/internal/queue"
 )
 
 func (m *Model) renderDownloads() string {
 	items := m.qm.Items()
+	m.listY = 0
 	if len(items) == 0 {
 		return dimStyle.Render("queue is empty — download something from Home")
 	}
+	visible := clamp(m.h-10, 5, 30)
+	start, end := m.listWindow(len(items), m.dl.cursor, visible)
+	m.listWinStart = start
 	var b strings.Builder
-	for i, it := range items {
+	for i := start; i < end; i++ {
+		it := items[i]
 		line := fmt.Sprintf("%s", it.Title)
 		if i == m.dl.cursor {
 			b.WriteString(selStyle.Render("▸ "))
@@ -57,7 +61,7 @@ func progressBar(pct float64) string {
 	return "[" + strings.Repeat("█", filled) + strings.Repeat("·", width-filled) + "]"
 }
 
-func (m *Model) dlKey(msg tea.KeyMsg) tea.Cmd {
+func (m *Model) dlAction(msg tea.KeyMsg) tea.Cmd {
 	items := m.qm.Items()
 	if len(items) == 0 {
 		return nil
@@ -90,47 +94,4 @@ func (m *Model) dlKey(msg tea.KeyMsg) tea.Cmd {
 		}
 	}
 	return nil
-}
-
-// ---- auth ----
-
-func (m *Model) authCmd() tea.Cmd {
-	return func() tea.Msg {
-		reqs, err := backend.PendingAuthRequests()
-		if err != nil || len(reqs) == 0 {
-			if err != nil {
-				m.msg = err.Error()
-			} else {
-				m.msg = "no pending auth requests"
-			}
-			return nil
-		}
-		m.auth = &authState{req: reqs[0]}
-		return nil
-	}
-}
-
-func (m *Model) renderAuth() string {
-	var b strings.Builder
-	b.WriteString(selStyle.Render("Verification required for " + m.auth.req.ExtensionID + "\n"))
-	b.WriteString(dimStyle.Render("Open this URL in your browser and sign in:\n"))
-	b.WriteString(m.auth.req.AuthURL + "\n\n")
-	b.WriteString(dimStyle.Render("Paste the code/redirect URL: "))
-	b.WriteString(m.auth.code + "▏")
-	return b.String()
-}
-
-func (m *Model) handleAuthKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch msg.Type {
-	case tea.KeyEsc:
-		m.auth = nil
-	case tea.KeyEnter:
-		backend.SetAuthCode(m.auth.req.ExtensionID, m.auth.code)
-		m.auth = nil
-		m.msg = "auth code submitted"
-		return m, loadExts()
-	default:
-		typeInto(&m.auth.code, msg)
-	}
-	return m, nil
 }

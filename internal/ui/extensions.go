@@ -25,17 +25,22 @@ func loadExts() tea.Cmd {
 
 func (m *Model) renderExts() string {
 	var b strings.Builder
+	m.listY = 0
 	if len(m.exts.priority) > 0 {
 		b.WriteString(dimStyle.Render("provider priority: "))
 		b.WriteString(strings.Join(m.exts.priority, " > "))
-		b.WriteString("\n")
+		b.WriteString("\n\n")
+		m.listY = 2
 	}
-	b.WriteString("\n")
 	if len(m.exts.exts) == 0 {
 		b.WriteString(dimStyle.Render("no extensions installed — install some from the Store tab"))
 		return b.String()
 	}
-	for i, e := range m.exts.exts {
+	visible := clamp(m.h-12, 5, 30)
+	start, end := m.listWindow(len(m.exts.exts), m.exts.cursor, visible)
+	m.listWinStart = start
+	for i := start; i < end; i++ {
+		e := m.exts.exts[i]
 		line := fmt.Sprintf("%s  v%s", e.DisplayName, e.Version)
 		types := []string{}
 		if e.HasMetadataProvider {
@@ -68,7 +73,7 @@ func (m *Model) renderExts() string {
 	return b.String()
 }
 
-func (m *Model) extsKey(msg tea.KeyMsg) tea.Cmd {
+func (m *Model) extsAction(msg tea.KeyMsg) tea.Cmd {
 	switch msg.Type {
 	case tea.KeyUp:
 		if m.exts.cursor > 0 {
@@ -113,8 +118,6 @@ func (m *Model) extsKey(msg tea.KeyMsg) tea.Cmd {
 	return nil
 }
 
-// movePriority keeps the selected download provider in priority order by
-// moving it up/down within the priority list.
 func (m *Model) movePriority(dir int) {
 	if len(m.exts.exts) == 0 {
 		return
