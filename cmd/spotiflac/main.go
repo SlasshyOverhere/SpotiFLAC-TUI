@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"syscall"
 
 	tea "github.com/charmbracelet/bubbletea"
 	gobackend "github.com/zarz/spotiflac_android/go_backend"
@@ -68,13 +67,9 @@ func redirectStderr(cfg app.Config) *os.File {
 	if err != nil {
 		return nil
 	}
-	// Redirect both the Go-level variable and the underlying fd 2 so that
-	// any C/goja code writing directly to stderr also lands in the log file.
+	// Redirect the Go-level stderr so that goja and other libraries writing
+	// through os.Stderr land in the log file instead of the TUI's terminal.
 	os.Stderr = f
-	if err := syscall.Dup2(int(f.Fd()), syscall.Stderr); err != nil {
-		f.Close()
-		return nil
-	}
 	return f
 }
 
