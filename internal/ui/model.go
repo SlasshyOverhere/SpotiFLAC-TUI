@@ -137,7 +137,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.w, m.h = msg.Width, msg.Height
-		w := clamp(msg.Width-10, 20, 100)
+		w := max(msg.Width-10, 20)
 		m.home.input.Width = w
 		m.store.input.Width = w
 		m.settings.input.Width = w

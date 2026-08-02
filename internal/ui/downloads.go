@@ -15,7 +15,7 @@ func (m *Model) renderDownloads() string {
 	if len(items) == 0 {
 		return dimStyle.Render("queue is empty — download something from Home")
 	}
-	visible := clamp(m.h-10, 5, 30)
+	visible := m.h - 10
 	start, end := m.listWindow(len(items), m.dl.cursor, visible)
 	m.listWinStart = start
 	var b strings.Builder

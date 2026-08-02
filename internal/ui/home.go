@@ -41,7 +41,7 @@ func (m *Model) renderHome() string {
 		b.WriteString(dimStyle.Render("no results yet — type a URL or query and press enter"))
 		return b.String()
 	}
-	visible := clamp(m.h-12, 5, 30)
+	visible := m.h - 12
 	start, end := m.listWindow(len(m.home.results), m.home.cursor, visible)
 	m.listWinStart = start
 	for i := start; i < end; i++ {

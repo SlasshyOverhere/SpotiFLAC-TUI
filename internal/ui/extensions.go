@@ -36,7 +36,7 @@ func (m *Model) renderExts() string {
 		b.WriteString(dimStyle.Render("no extensions installed — install some from the Store tab"))
 		return b.String()
 	}
-	visible := clamp(m.h-12, 5, 30)
+	visible := m.h - 12
 	start, end := m.listWindow(len(m.exts.exts), m.exts.cursor, visible)
 	m.listWinStart = start
 	for i := start; i < end; i++ {

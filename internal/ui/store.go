@@ -48,7 +48,7 @@ func (m *Model) renderStore() string {
 		b.WriteString(dimStyle.Render("no extensions — press r to add a registry URL"))
 		return b.String()
 	}
-	visible := clamp(m.h-14, 5, 30)
+	visible := m.h - 14
 	start, end := m.listWindow(len(m.store.exts), m.store.cursor, visible)
 	m.listWinStart = start
 	for i := start; i < end; i++ {

@@ -31,7 +31,7 @@ func dashboardSidebarWidth(width int) int {
 	if width < 48 {
 		return max(width/3, 1)
 	}
-	return clamp(width/5, 22, 28)
+	return max(width/3, 24)
 }
 
 func (m *Model) renderDashboard() string {
