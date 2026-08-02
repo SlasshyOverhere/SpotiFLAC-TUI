@@ -1,0 +1,49 @@
+name: release
+on:
+  schedule:
+    - cron: '30 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.5'
+      - id: backend-sha
+        run: echo "sha=$(git -C SpotiFLAC-Mobile rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - id: version
+        run: echo "v=v$(date -u +%Y.%m.%d.%H%M)" >> "$GITHUB_OUTPUT"
+      - name: Skip if release exists
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "${{ steps.version.outputs.v }}" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Build + publish
+        if: steps.check.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          V=${{ steps.version.outputs.v }}
+          mkdir -p dist
+          GOOS=linux GOARCH=amd64 go build -trimpath \
+            -ldflags "-X spotiflac-cli/internal/update.Version=$V -X spotiflac-cli/internal/update.Repo=${{ github.repository }}" \
+            -o dist/spotiflac_linux_amd64 ./cmd/spotiflac
+          tar -C dist -czf dist/spotiflac_linux_amd64.tar.gz spotiflac_linux_amd64
+          sha256sum dist/spotiflac_linux_amd64.tar.gz > dist/spotiflac_linux_amd64.tar.gz.sha256
+          gh release create "$V" \
+            dist/spotiflac_linux_amd64.tar.gz dist/spotiflac_linux_amd64.tar.gz.sha256 \
+            --title "auto: backend ${{ steps.backend-sha.outputs.sha }}" \
+            --notes "Automated build of upstream SpotiFLAC backend @ ${{ steps.backend-sha.outputs.sha }}"
