@@ -43,9 +43,8 @@ func TestTuiTyping(t *testing.T) {
 	m, _ = m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 
 	mm := m.(*Model)
-	m, _ = m.Update(key("e")) // focus home input
 	if !mm.home.inputFocused {
-		t.Fatalf("e should focus the input")
+		t.Fatalf("home input should be focused on startup")
 	}
 	for _, r := range "spotify.com/track/xyz" {
 		m, _ = m.Update(key(string(r)))
@@ -57,6 +56,48 @@ func TestTuiTyping(t *testing.T) {
 	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyEsc})
 	if mm.home.inputFocused {
 		t.Fatalf("esc should blur the input")
+	}
+}
+
+func TestTuiEnterDownloadsSelectedAndPreservesSearch(t *testing.T) {
+	var m tea.Model = New(app.Default(), queue.New())
+	m, _ = m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	mm := m.(*Model)
+	mm.home.input.SetValue("saved search")
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if mm.home.input.Value() != "saved search" {
+		t.Fatalf("search should remain after submit, got %q", mm.home.input.Value())
+	}
+	mm.home.loading = false
+	mm.home.results = []backend.Track{{ID: "track-1", Name: "Selected track"}}
+	mm.home.cursor = 0
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if mm.tab != 3 {
+		t.Fatalf("enter on a result should open Downloads, got tab %d", mm.tab)
+	}
+	if len(mm.qm.Items()) != 1 || mm.qm.Items()[0].Title != "Selected track" {
+		t.Fatalf("selected result was not queued: %#v", mm.qm.Items())
+	}
+	if mm.home.input.Value() != "saved search" {
+		t.Fatalf("search should be preserved after download")
+	}
+}
+
+func TestTuiClickResultDownloadsSelected(t *testing.T) {
+	var m tea.Model = New(app.Default(), queue.New())
+	m, _ = m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	mm := m.(*Model)
+	mm.home.input.Blur()
+	mm.home.inputFocused = false
+	mm.home.results = []backend.Track{{ID: "track-2", Name: "Clicked track"}}
+	mm.home.cursor = 0
+	mm.View() // record list geometry used by mouse hit-testing
+	m, _ = m.Update(tea.MouseMsg{X: dashboardSidebarWidth(100) + 4, Y: 6, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress})
+	if mm.tab != 3 {
+		t.Fatalf("clicking a result should open Downloads, got tab %d", mm.tab)
+	}
+	if len(mm.qm.Items()) != 1 || mm.qm.Items()[0].Title != "Clicked track" {
+		t.Fatalf("clicked result was not queued: %#v", mm.qm.Items())
 	}
 }
 

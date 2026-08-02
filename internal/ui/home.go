@@ -62,6 +62,8 @@ func (m *Model) renderHome() string {
 
 func (m *Model) homeAction(msg tea.KeyMsg) tea.Cmd {
 	switch msg.Type {
+	case tea.KeyEnter:
+		return m.downloadSelected()
 	case tea.KeyUp:
 		if m.home.cursor > 0 {
 			m.home.cursor--
@@ -76,12 +78,7 @@ func (m *Model) homeAction(msg tea.KeyMsg) tea.Cmd {
 			m.home.input.Focus()
 			m.home.inputFocused = true
 		case "d":
-			if len(m.home.results) > 0 {
-				t := m.home.results[m.home.cursor]
-				req := backend.DownloadRequestForTrack(t, m.cfg)
-				m.qm.Enqueue(queue.Queued{Title: t.Name, RequestJSON: backend.DownloadRequestJSON(req)})
-				return func() tea.Msg { return enqueuedMsg{1} }
-			}
+			return m.downloadSelected()
 		case "a":
 			if len(m.home.results) > 0 {
 				for _, t := range m.home.results {
@@ -101,6 +98,19 @@ func (m *Model) homeAction(msg tea.KeyMsg) tea.Cmd {
 		}
 	}
 	return nil
+}
+
+func (m *Model) downloadSelected() tea.Cmd {
+	if len(m.home.results) == 0 || m.home.cursor < 0 || m.home.cursor >= len(m.home.results) {
+		return nil
+	}
+	t := m.home.results[m.home.cursor]
+	req := backend.DownloadRequestForTrack(t, m.cfg)
+	m.qm.Enqueue(queue.Queued{Title: t.Name, RequestJSON: backend.DownloadRequestJSON(req)})
+	m.home.input.Blur()
+	m.home.inputFocused = false
+	m.switchTab(3)
+	return func() tea.Msg { return enqueuedMsg{1} }
 }
 
 func resolveCmd(query string) tea.Cmd {

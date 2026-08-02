@@ -116,6 +116,8 @@ func newInput(placeholder string) textinput.Model {
 func New(cfg app.Config, qm *queue.Manager) *Model {
 	m := &Model{cfg: cfg, qm: qm, listY: -1}
 	m.home.input = newInput("URL or search query")
+	m.home.input.Focus()
+	m.home.inputFocused = true
 	m.home.spin = newSpinner()
 	m.store.input = newInput("https://github.com/owner/repo  (extension registry)")
 	m.store.spin = newSpinner()
@@ -236,8 +238,8 @@ func (m *Model) submitFocusedInput() (tea.Model, tea.Cmd) {
 	switch m.tab {
 	case 0:
 		query := strings.TrimSpace(m.home.input.Value())
-		m.home.input.SetValue("")
 		m.home.inputFocused = false
+		m.home.input.Blur()
 		m.home.loading = true
 		return m, tea.Batch(resolveCmd(query), func() tea.Msg { return m.home.spin.Tick() })
 	case 1:
@@ -267,10 +269,10 @@ func (m *Model) updateGlobal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case tea.KeyCtrlC, tea.KeyCtrlD:
 		return m, tea.Quit
 	case tea.KeyTab:
-		m.tab = (m.tab + 1) % 5
+		m.switchTab((m.tab + 1) % 5)
 		return m, nil
 	case tea.KeyShiftTab:
-		m.tab = (m.tab + 4) % 5
+		m.switchTab((m.tab + 4) % 5)
 		return m, nil
 	case tea.KeyCtrlL:
 		if err := m.cfg.Save(); err != nil {
@@ -282,7 +284,7 @@ func (m *Model) updateGlobal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case tea.KeyRunes:
 		switch msg.String() {
 		case "1", "2", "3", "4", "5":
-			m.tab = int(msg.String()[0] - '1')
+			m.switchTab(int(msg.String()[0] - '1'))
 			return m, nil
 		case "q":
 			return m, tea.Quit
@@ -306,6 +308,18 @@ func (m *Model) updateGlobal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		cmd = m.settingsAction(msg)
 	}
 	return m, cmd
+}
+
+func (m *Model) switchTab(tab int) {
+	if m.tab == 0 && tab != 0 {
+		m.home.input.Blur()
+		m.home.inputFocused = false
+	}
+	m.tab = tab
+	if tab == 0 {
+		m.home.input.Focus()
+		m.home.inputFocused = true
+	}
 }
 
 func (m *Model) handleAsync(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -413,7 +427,7 @@ func (m *Model) computeTabXs() [][2]int {
 
 func (m *Model) renderFooter() string {
 	hints := map[int]string{
-		0: "e search · j/k or wheel · d download · a download all",
+		0: "enter search/download · j/k or wheel · d download · a all",
 		1: "r add repo · i install · R refresh · s switch repo",
 		2: "x toggle · j/k move prio · m save · v verify",
 		3: "j/k or wheel · c cancel",
@@ -482,7 +496,7 @@ func (m *Model) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 	// Navigation is a fixed left rail, with one row per tab.
 	if msg.X < sidebarWidth {
 		if msg.Y >= 5 && msg.Y < 5+len(tabNames) {
-			m.tab = msg.Y - 5
+			m.switchTab(msg.Y - 5)
 		}
 		return m, nil
 	}
@@ -502,6 +516,9 @@ func (m *Model) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 			n := m.listLen()
 			if m.listWinStart+idx < n {
 				m.setCursor(m.listWinStart + idx)
+				if m.tab == 0 {
+					return m, m.downloadSelected()
+				}
 			}
 		}
 	}
