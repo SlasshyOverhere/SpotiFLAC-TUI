@@ -497,17 +497,17 @@ func (m *Model) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// input row is the first line of tab content (content line 3)
-	if contentY == 3 {
+	// input row is the first line of tab content (contentY 2: header at 0, blank at 1)
+	if contentY == 2 {
 		if m.tab == 0 || m.tab == 1 || m.tab == 4 {
 			m.focusInput()
 			return m, nil
 		}
 	}
 
-	// list rows (tab content starts at content line 3)
+	// list rows (content starts at contentY 2: header + blank)
 	if m.listY >= 0 {
-		idx := contentY - 3 - m.listY
+		idx := contentY - 2 - m.listY
 		if idx >= 0 {
 			n := m.listLen()
 			if m.listWinStart+idx < n {

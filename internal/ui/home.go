@@ -27,7 +27,7 @@ func (m *Model) renderHome() string {
 	}
 	b.WriteString("\n\n")
 
-	m.listY = 3
+	m.listY = 2
 	if m.home.loading {
 		b.WriteString(m.home.spin.View() + " working…")
 		return b.String()
@@ -35,7 +35,7 @@ func (m *Model) renderHome() string {
 	if m.home.kind != "" {
 		b.WriteString(dimStyle.Render(m.home.kind))
 		b.WriteString("\n")
-		m.listY = 4
+		m.listY = 3
 	}
 	if len(m.home.results) == 0 {
 		b.WriteString(dimStyle.Render("no results yet — type a URL or query and press enter"))

@@ -1,4 +1,32 @@
-dist/
-*.tar.gz
-.spotiflac-update
+# Build artifacts
+/dist/
+/bin/
+*.exe
+*.test
+*.out
+
+# The compiled binary
 /spotiflac
+/spotiflac.dll
+/spotiflac.exe
+
+# Update pipeline staging
+.spotiflac-update
+*.tar.gz
+*.sha256
+
+# IDE / editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Go
+coverage.out
+*.prof
+
+# Runtime / local config
+*.log
+tmp/

@@ -31,11 +31,11 @@ func (m *Model) renderStore() string {
 	b.WriteString("\n")
 
 	regs, _ := backend.ListRegistries()
-	m.listY = 3
+	m.listY = 2
 	if len(regs) > 0 {
 		b.WriteString(dimStyle.Render("  repo: " + regs[len(regs)-1]))
 		b.WriteString("\n\n")
-		m.listY = 4
+		m.listY = 3
 	} else {
 		b.WriteString("\n")
 	}
