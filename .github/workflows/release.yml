@@ -31,19 +31,50 @@ jobs:
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
-      - name: Build + publish
+      - name: Build all targets
+        if: steps.check.outputs.exists == 'false'
+        run: |
+          V=${{ steps.version.outputs.v }}
+          mkdir -p dist
+          set -e
+          for target in \
+            "linux amd64 .tar.gz" \
+            "linux arm64 .tar.gz" \
+            "linux arm .tar.gz" \
+            "linux 386 .tar.gz" \
+            "darwin amd64 .tar.gz" \
+            "darwin arm64 .tar.gz" \
+            "windows amd64 .zip" \
+            "windows arm64 .zip" \
+            "freebsd amd64 .tar.gz" \
+            "openbsd amd64 .tar.gz" \
+            "netbsd amd64 .tar.gz" \
+            "illumos amd64 .tar.gz"; do
+            set -- $target
+            os=$1; arch=$2; ext=$3
+            bin=spotiflac_${os}_${arch}
+            out=dist/$bin
+            if [ "$os" = "windows" ]; then
+              out=dist/${bin}.exe
+            fi
+            GOOS=$os GOARCH=$arch CGO_ENABLED=0 go build -trimpath \
+              -ldflags "-X spotiflac-cli/internal/update.Version=$V -X spotiflac-cli/internal/update.Repo=${{ github.repository }}" \
+              -o "$out" ./cmd/spotiflac
+            if [ "$ext" = ".zip" ]; then
+              (cd dist && zip -q "$bin$ext" "${bin}.exe")
+              rm "$out"
+            else
+              tar -C dist -czf "dist/${bin}${ext}" "$bin"
+              rm "$out"
+            fi
+            sha256sum "dist/${bin}${ext}" > "dist/${bin}${ext}.sha256"
+          done
+      - name: Publish
         if: steps.check.outputs.exists == 'false'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           V=${{ steps.version.outputs.v }}
-          mkdir -p dist
-          GOOS=linux GOARCH=amd64 go build -trimpath \
-            -ldflags "-X spotiflac-cli/internal/update.Version=$V -X spotiflac-cli/internal/update.Repo=${{ github.repository }}" \
-            -o dist/spotiflac_linux_amd64 ./cmd/spotiflac
-          tar -C dist -czf dist/spotiflac_linux_amd64.tar.gz spotiflac_linux_amd64
-          sha256sum dist/spotiflac_linux_amd64.tar.gz > dist/spotiflac_linux_amd64.tar.gz.sha256
-          gh release create "$V" \
-            dist/spotiflac_linux_amd64.tar.gz dist/spotiflac_linux_amd64.tar.gz.sha256 \
+          gh release create "$V" dist/*.tar.gz dist/*.zip dist/*.sha256 \
             --title "auto: backend ${{ steps.backend-sha.outputs.sha }}" \
             --notes "Automated build of upstream SpotiFLAC backend @ ${{ steps.backend-sha.outputs.sha }}"
