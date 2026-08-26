@@ -1,14 +1,22 @@
 name: release
+
 on:
   schedule:
-    - cron: '30 3 * * *'
+    # Poll upstream every 30 minutes. GitHub cannot deliver events from a repo
+    # we don't own, so the robot polls instead — the check is a cheap
+    # ls-remote and everything downstream is gated on an actual change.
+    - cron: '*/30 * * * *'
   workflow_dispatch:
 
 permissions:
   contents: write
 
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
-  release:
+  sync-and-release:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,22 +25,73 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.26.5'
-      - id: backend-sha
-        run: echo "sha=$(git -C SpotiFLAC-Mobile rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-      - id: version
-        run: echo "v=v$(date -u +%Y.%m.%d.%H%M)" >> "$GITHUB_OUTPUT"
-      - name: Skip if release exists
-        id: check
+
+      - name: Detect upstream changes
+        id: upstream
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view "${{ steps.version.outputs.v }}" >/dev/null 2>&1; then
+          set -euo pipefail
+          OLD=$(git ls-tree HEAD SpotiFLAC-Mobile | awk '{print $3}')
+          NEW=$(git ls-remote https://github.com/spotiflacapp/SpotiFLAC-Mobile.git HEAD 2>/dev/null | awk '{print $1}' || true)
+          # Baseline for releases: the backend SHA shipped by the most recent
+          # release, encoded in its name ("auto: backend <sha>"). Empty when
+          # there are no releases yet, which means "publish anything new".
+          PUBLISHED=$(gh release list --limit 1 --json name --jq '.[0].name' 2>/dev/null | sed -n 's/^auto: backend //p' || true)
+          echo "old=$OLD"
+          echo "new=$NEW"
+          echo "published=$PUBLISHED"
+          echo "old=$OLD" >> "$GITHUB_OUTPUT"
+          echo "new=$NEW" >> "$GITHUB_OUTPUT"
+          echo "published=$PUBLISHED" >> "$GITHUB_OUTPUT"
+          if [ -z "$NEW" ]; then
+            echo "pin_changed=false" >> "$GITHUB_OUTPUT"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Sync the submodule pin whenever upstream moved (working tree only;
+          # nothing is pushed until the build below has succeeded).
+          if [ "$OLD" != "$NEW" ]; then
+            echo "pin_changed=true" >> "$GITHUB_OUTPUT"
+            git -C SpotiFLAC-Mobile fetch origin main
+            git -C SpotiFLAC-Mobile checkout --detach "$NEW"
+          else
+            echo "pin_changed=false" >> "$GITHUB_OUTPUT"
+          fi
+          # Publish whenever upstream moved past what the last release shipped.
+          # Comparing against the last release (not the pin) means a failed
+          # publish is retried on the next run instead of being forgotten.
+          if [ "$NEW" != "$PUBLISHED" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Verify build and selfcheck with new backend
+        if: steps.upstream.outputs.pin_changed == 'true' || steps.upstream.outputs.changed == 'true'
+        run: |
+          go build ./...
+          go vet ./...
+          go test ./...
+          go run ./cmd/spotiflac --selfcheck
+
+      - name: Compute version and check for existing release
+        id: version
+        if: steps.upstream.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          V="v$(date -u +%Y.%m.%d.%H%M%S)"
+          echo "v=$V" >> "$GITHUB_OUTPUT"
+          if gh release view "$V" >/dev/null 2>&1; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
+
       - name: Build all targets
-        if: steps.check.outputs.exists == 'false'
+        if: steps.upstream.outputs.changed == 'true' && steps.version.outputs.exists == 'false'
         run: |
           V=${{ steps.version.outputs.v }}
           mkdir -p dist
@@ -69,12 +128,26 @@ jobs:
             fi
             sha256sum "dist/${bin}${ext}" > "dist/${bin}${ext}.sha256"
           done
+
+      - name: Commit submodule bump
+        if: steps.upstream.outputs.pin_changed == 'true'
+        run: |
+          git config user.name "spotiflac-robot[bot]"
+          git config user.email "spotiflac-robot[bot]@users.noreply.github.com"
+          git add SpotiFLAC-Mobile
+          if git diff --cached --quiet; then
+            echo "gitlink already up to date, nothing to commit"
+            exit 0
+          fi
+          git commit -m "chore: sync SpotiFLAC-Mobile to ${{ steps.upstream.outputs.new }}"
+          git push origin HEAD:main
+
       - name: Publish
-        if: steps.check.outputs.exists == 'false'
+        if: steps.upstream.outputs.changed == 'true' && steps.version.outputs.exists == 'false'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           V=${{ steps.version.outputs.v }}
           gh release create "$V" dist/*.tar.gz dist/*.zip dist/*.sha256 \
-            --title "auto: backend ${{ steps.backend-sha.outputs.sha }}" \
-            --notes "Automated build of upstream SpotiFLAC backend @ ${{ steps.backend-sha.outputs.sha }}"
+            --title "auto: backend ${{ steps.upstream.outputs.new }}" \
+            --notes "Automated build of upstream SpotiFLAC backend ${{ steps.upstream.outputs.old }} → ${{ steps.upstream.outputs.new }}"

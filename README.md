@@ -57,11 +57,11 @@ curl -sL https://github.com/SlasshyOverhere/SpotiFLAC-TUI/releases/latest/downlo
 
 Each asset ships with a `.sha256` checksum for verification.
 
-> **Note:** the release robot builds a fresh binary from upstream source every
-> night when the backend changes, then tiles it our binary with a versioned tag
-> (`vYYYY.MM.DD.HHMM`). The CLI also **self-updates at runtime** — it checks for
-> a newer release and swaps itself in place, so you usually never update
-> manually.
+> **Note:** the release robot polls upstream every 30 minutes, auto-syncs the
+> submodule to the latest `SpotiFLAC-Mobile` commit, and publishes a fresh
+> binary with a versioned tag (`vYYYY.MM.DD.HHMMSS`) on every upstream commit.
+> The CLI also **self-updates at runtime** — it checks for a newer release and
+> swaps itself in place, so you usually never update manually.
 
 ---
 
@@ -114,10 +114,12 @@ Global: `q` quit, `?` help, `ctrl+c` exit.
 ## How updates work
 
 1. **Extensions** auto-update live inside the running TUI from the Store.
-2. **Backend** changes land via a pinned `SpotiFLAC-Mobile` submodule, bumped
-   automatically by [Renovate](renovate.json).
-3. **Binary** publishes via a scheduled robot job; the CLI self-updates at
-   runtime. See `.github/workflows/release.yml`.
+2. **Backend** changes land via the pinned `SpotiFLAC-Mobile` submodule, which
+   the release robot auto-syncs to the latest upstream commit (polled every
+   30 minutes) and commits to `main`.
+3. **Binary** publishes via the same robot job on every upstream commit, so
+   there is always a build matching the latest upstream. The CLI self-updates
+   at runtime. See `.github/workflows/release.yml`.
 
 ---
 
