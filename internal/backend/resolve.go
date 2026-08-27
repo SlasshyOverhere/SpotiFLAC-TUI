@@ -93,7 +93,6 @@ func DownloadRequestForTrack(t Track, cfg app.Config) gobackend.DownloadRequest 
 		Quality:            cfg.Quality,
 		EmbedMetadata:      cfg.EmbedMetadata,
 		EmbedLyrics:        cfg.EmbedLyrics,
-		EmbedMaxQualityCover: true,
 		TrackNumber:        t.TrackNumber,
 		TotalTracks:        t.TotalTracks,
 		DiscNumber:         t.DiscNumber,
